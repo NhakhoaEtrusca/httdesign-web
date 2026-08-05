@@ -62,6 +62,12 @@
         ctaForm.reset();
         ctaForm.style.display = '';
         ctaSuccess.style.display = 'none';
+        var titleEl = ctaSuccess.querySelector('.cta-success-title');
+        var textEl = ctaSuccess.querySelector('.cta-success-text');
+        var mailLink = ctaSuccess.querySelector('.cta-mail-link');
+        if (titleEl) titleEl.textContent = 'Đã gửi yêu cầu thành công';
+        if (textEl) textEl.textContent = 'Cảm ơn bạn đã liên hệ. HTTDesign đã nhận được thông tin và sẽ phản hồi trong thời gian sớm nhất. Trong lúc chờ, bạn cũng có thể liên hệ trực tiếp:';
+        if (mailLink) mailLink.style.display = 'none';
       }
     }
     ctaClose.addEventListener('click', closeCtaModal);
@@ -70,7 +76,12 @@
       if (e.key === 'Escape' && ctaModal.classList.contains('is-open')) closeCtaModal();
     });
 
+    var WEB3FORMS_ACCESS_KEY = 'bb1d2601-8624-4766-8fbd-5471ccdadd8d';
+
     if (ctaForm) {
+      var ctaSubmitBtn = ctaForm.querySelector('button[type="submit"]');
+      var ctaSubmitLabel = ctaSubmitBtn ? ctaSubmitBtn.textContent : '';
+
       ctaForm.addEventListener('submit', function (e) {
         e.preventDefault();
         var f = ctaForm;
@@ -88,14 +99,46 @@
           '?subject=' + encodeURIComponent(subject) +
           '&body=' + encodeURIComponent(body);
 
-        if (ctaSuccess) {
-          var mailLink = ctaSuccess.querySelector('.cta-mail-link');
-          if (mailLink) mailLink.href = mailtoUrl;
+        function showSuccess() {
           ctaForm.style.display = 'none';
-          ctaSuccess.style.display = 'block';
-        } else {
-          window.location.href = mailtoUrl;
+          if (ctaSuccess) ctaSuccess.style.display = 'block';
         }
+        function showFallback() {
+          if (ctaSuccess) {
+            var titleEl = ctaSuccess.querySelector('.cta-success-title');
+            var textEl = ctaSuccess.querySelector('.cta-success-text');
+            var mailLink = ctaSuccess.querySelector('.cta-mail-link');
+            if (titleEl) titleEl.textContent = 'Đã ghi nhận yêu cầu của bạn';
+            if (textEl) textEl.textContent = 'Không thể gửi tự động, vui lòng bấm nút bên dưới để mở email, hoặc liên hệ trực tiếp:';
+            if (mailLink) { mailLink.href = mailtoUrl; mailLink.style.display = ''; }
+            ctaForm.style.display = 'none';
+            ctaSuccess.style.display = 'block';
+          } else {
+            window.location.href = mailtoUrl;
+          }
+        }
+
+        if (ctaSubmitBtn) { ctaSubmitBtn.disabled = true; ctaSubmitBtn.textContent = 'Đang gửi...'; }
+
+        var formData = new FormData(f);
+        formData.append('access_key', WEB3FORMS_ACCESS_KEY);
+        formData.set('subject', subject);
+        formData.append('from_name', 'HTTDesign Website');
+
+        fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+          body: formData
+        })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            if (data && data.success) showSuccess();
+            else showFallback();
+          })
+          .catch(function () { showFallback(); })
+          .finally(function () {
+            if (ctaSubmitBtn) { ctaSubmitBtn.disabled = false; ctaSubmitBtn.textContent = ctaSubmitLabel; }
+          });
       });
     }
   }
