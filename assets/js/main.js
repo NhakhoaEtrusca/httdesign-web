@@ -53,9 +53,16 @@
         document.body.style.overflow = 'hidden';
       });
     });
+    var ctaForm = ctaModal.querySelector('form');
+    var ctaSuccess = ctaModal.querySelector('.cta-success');
     function closeCtaModal() {
       ctaModal.classList.remove('is-open');
       document.body.style.overflow = '';
+      if (ctaForm && ctaSuccess) {
+        ctaForm.reset();
+        ctaForm.style.display = '';
+        ctaSuccess.style.display = 'none';
+      }
     }
     ctaClose.addEventListener('click', closeCtaModal);
     ctaModal.addEventListener('click', function (e) { if (e.target === ctaModal) closeCtaModal(); });
@@ -63,7 +70,6 @@
       if (e.key === 'Escape' && ctaModal.classList.contains('is-open')) closeCtaModal();
     });
 
-    var ctaForm = ctaModal.querySelector('form');
     if (ctaForm) {
       ctaForm.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -77,10 +83,19 @@
           'Chu de: ' + f.subject.value + '\n' +
           'Loai tu van: ' + f.consultType.value + '\n\n' +
           'Noi dung:\n' + f.message.value;
-        window.location.href =
+        var mailtoUrl =
           'mailto:ktshuathanhtin@gmail.com' +
           '?subject=' + encodeURIComponent(subject) +
           '&body=' + encodeURIComponent(body);
+
+        if (ctaSuccess) {
+          var mailLink = ctaSuccess.querySelector('.cta-mail-link');
+          if (mailLink) mailLink.href = mailtoUrl;
+          ctaForm.style.display = 'none';
+          ctaSuccess.style.display = 'block';
+        } else {
+          window.location.href = mailtoUrl;
+        }
       });
     }
   }

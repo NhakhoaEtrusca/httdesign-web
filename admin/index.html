@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quản trị Website | HTTDesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="../assets/css/style.css">
+<style>
+  body { background: var(--color-bg); padding-bottom: 80px; }
+  .admin-wrap { max-width: 880px; margin: 0 auto; padding: 100px 24px 40px; }
+  .admin-header { margin-bottom: 32px; }
+  .admin-header h1 { font-size: 30px; font-weight: 300; margin-bottom: 8px; }
+  .admin-header p { color: var(--color-text-muted); font-size: 14px; margin: 0; }
+  .admin-card { background: var(--color-bg-alt); border: 1px solid var(--color-border); border-radius: var(--radius); padding: 28px; margin-bottom: 24px; }
+  .admin-card h2 { font-size: 18px; font-weight: 500; margin-bottom: 6px; }
+  .admin-card .desc { color: var(--color-text-muted); font-size: 13px; margin-bottom: 18px; }
+  .conn-status { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--radius); font-size: 13px; margin-bottom: 18px; }
+  .conn-status.off { background: #f3ece0; color: var(--color-text-muted); }
+  .conn-status.on { background: #e7f3ea; color: #2a6b3d; }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+  .admin-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+  .admin-tab-btn { padding: 10px 18px; border-radius: 30px; border: 1px solid var(--color-border); background: var(--color-bg-alt); font-family: var(--font-head); font-size: 13px; cursor: pointer; }
+  .admin-tab-btn.is-active { background: var(--color-text); color: var(--color-bg); border-color: var(--color-text); }
+  .admin-panel { display: none; }
+  .admin-panel.is-active { display: block; }
+  .a-field { margin-bottom: 18px; }
+  .a-field label { display: block; font-size: 13px; font-family: var(--font-head); margin-bottom: 7px; }
+  .a-field input[type=text], .a-field input[type=number], .a-field select, .a-field textarea {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--color-border); border-radius: var(--radius);
+    font-family: var(--font-body); font-size: 14px; background: #fff;
+  }
+  .a-field textarea { min-height: 90px; resize: vertical; }
+  .a-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .drop-zone {
+    border: 2px dashed var(--color-border); border-radius: var(--radius); padding: 28px; text-align: center;
+    color: var(--color-text-muted); font-size: 13px; cursor: pointer; margin-bottom: 10px;
+  }
+  .drop-zone.drag { border-color: var(--color-accent); background: #faf6ec; }
+  .thumb-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .thumb-row .thumb { position: relative; width: 84px; height: 84px; border-radius: var(--radius); overflow: hidden; background: #ddd; }
+  .thumb-row .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb-row .thumb button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; cursor: pointer; line-height: 1; }
+  .a-log { background: var(--color-dark); color: var(--color-dark-text); border-radius: var(--radius); padding: 16px; font-size: 12px; font-family: monospace; max-height: 220px; overflow-y: auto; white-space: pre-wrap; margin-top: 16px; display: none; }
+  .a-log.show { display: block; }
+  .check-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .check-row input { width: 18px; height: 18px; }
+  .check-row label { font-size: 14px; }
+  .warn-box { background: #fdf3e3; border: 1px solid #eddcb0; border-radius: var(--radius); padding: 14px 16px; font-size: 13px; color: #6b5326; margin-bottom: 20px; }
+  .project-list { border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
+  .project-list .p-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--color-border); font-size: 14px; }
+  .project-list .p-row:last-child { border-bottom: 0; }
+  .project-list .p-row span.cat { color: var(--color-text-muted); font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header class="site-header is-solid">
+  <div class="container">
+    <a href="../index.html" class="brand"><img src="../assets/img/brand/logo-white.webp" alt="HTTDesign"></a>
+    <nav class="nav">
+      <ul class="nav-links">
+        <li><a href="../du-an/index.html">Dự án</a></li>
+        <li><a href="../gioi-thieu.html">Giới thiệu</a></li>
+        <li><a href="index.html" class="active">Quản trị</a></li>
+      </ul>
+      <button class="nav-toggle" aria-label="Menu"><span></span></button>
+    </nav>
+  </div>
+</header>
+<div class="mobile-menu">
+  <a href="../index.html">Trang chủ</a>
+  <a href="../du-an/index.html">Dự án</a>
+  <a href="../gioi-thieu.html">Giới thiệu</a>
+</div>
+
+<div class="admin-wrap">
+  <div class="admin-header">
+    <h1>Quản trị Website</h1>
+    <p>Thêm dự án mới, cập nhật ảnh nền — không cần biết lập trình. Chỉ hoạt động trên trình duyệt <b>Chrome</b> hoặc <b>Edge</b> trên máy tính.</p>
+  </div>
+
+  <div class="admin-card">
+    <h2>Bước 1 — Kết nối thư mục website</h2>
+    <p class="desc">Chọn đúng thư mục gốc chứa file <code>index.html</code> của website (thư mục "HTTDesign Web"). Trình duyệt sẽ xin quyền truy cập — đây là quyền cục bộ trên máy bạn, không gửi dữ liệu đi đâu cả.</p>
+    <div id="connStatus" class="conn-status off"><span class="conn-dot"></span><span id="connText">Chưa kết nối thư mục nào</span></div>
+    <button type="button" id="btnConnect" class="btn btn--light">Chọn thư mục website</button>
+    <div id="unsupportedWarn" class="warn-box" style="display:none;margin-top:16px">
+      Trình duyệt của bạn không hỗ trợ tính năng ghi file trực tiếp. Vui lòng mở trang này bằng <b>Google Chrome</b> hoặc <b>Microsoft Edge</b> trên máy tính (không dùng được trên điện thoại hoặc Safari/Firefox).
+    </div>
+  </div>
+
+  <div id="mainTools" style="display:none">
+    <div class="admin-tabs">
+      <button class="admin-tab-btn is-active" data-tab="add-project">Thêm dự án mới</button>
+      <button class="admin-tab-btn" data-tab="hero-images">Ảnh nền Trang chủ &amp; Dự án</button>
+      <button class="admin-tab-btn" data-tab="project-list">Danh sách dự án</button>
+      <button class="admin-tab-btn" data-tab="settings">Cài đặt</button>
+    </div>
+
+    <!-- TAB: ADD PROJECT -->
+    <div class="admin-panel is-active" id="panel-add-project">
+      <div class="admin-card">
+        <h2>Thêm dự án mới</h2>
+        <p class="desc">Điền thông tin và tải ảnh lên. Hệ thống sẽ tự tạo trang dự án, chuyển ảnh sang định dạng tối ưu (WebP) và thêm vào đúng danh mục — giống hệt các dự án hiện có trên site.</p>
+
+        <div class="a-row">
+          <div class="a-field">
+            <label>Tên dự án (tiếng Anh, dùng làm tiêu đề) *</label>
+            <input type="text" id="pName" placeholder="VD: Sunrise Villa">
+          </div>
+          <div class="a-field">
+            <label>Danh mục *</label>
+            <select id="pCategory">
+              <option value="biet-thu">Nhà ở, Biệt thự</option>
+              <option value="thuong-mai">Thương mại</option>
+              <option value="van-phong">Văn phòng</option>
+              <option value="khach-san">Khách sạn &amp; Resort</option>
+              <option value="cad">Khai triển bản vẽ kỹ thuật</option>
+            </select>
+          </div>
+        </div>
+        <div class="a-row">
+          <div class="a-field">
+            <label>Địa điểm</label>
+            <input type="text" id="pLocation" placeholder="VD: Quận 2, TP.HCM">
+          </div>
+          <div class="a-field">
+            <label>Năm hoàn thành</label>
+            <input type="text" id="pYear" placeholder="VD: 2026">
+          </div>
+        </div>
+        <div class="a-field">
+          <label>Tiêu đề câu chuyện thiết kế</label>
+          <input type="text" id="pStoryTitle" placeholder="VD: Không gian sống hiện đại">
+        </div>
+        <div class="a-field">
+          <label>Nội dung mô tả (mỗi đoạn cách nhau 1 dòng trống)</label>
+          <textarea id="pStory" placeholder="Đoạn 1 mô tả concept, phong cách...&#10;&#10;Đoạn 2 mô tả chi tiết vật liệu, không gian..."></textarea>
+        </div>
+
+        <div class="a-field">
+          <label>Ảnh dự án (ảnh đầu tiên sẽ là ảnh đại diện)</label>
+          <div class="drop-zone" id="pDropZone">Kéo thả ảnh vào đây, hoặc bấm để chọn ảnh (JPG/PNG, có thể chọn nhiều ảnh)</div>
+          <input type="file" id="pFileInput" accept="image/*" multiple style="display:none">
+          <div class="thumb-row" id="pThumbs"></div>
+        </div>
+
+        <button type="button" id="btnAddProject" class="btn btn--primary">Tạo dự án</button>
+        <div class="a-log" id="addProjectLog"></div>
+      </div>
+    </div>
+
+    <!-- TAB: HERO IMAGES -->
+    <div class="admin-panel" id="panel-hero-images">
+      <div class="admin-card">
+        <h2>Ảnh nền Trang chủ &amp; Dự án</h2>
+        <p class="desc">Tải thêm ảnh vào vòng xoay ảnh nền tự động đổi mỗi 5 giây. Ảnh sẽ được thêm vào cuối danh sách hiện có.</p>
+
+        <div class="a-field">
+          <label>Áp dụng cho</label>
+          <select id="hTarget">
+            <option value="home">Trang chủ</option>
+            <option value="projects">Trang Dự án</option>
+            <option value="both">Cả hai</option>
+          </select>
+        </div>
+
+        <div class="a-field">
+          <label>Chọn ảnh</label>
+          <div class="drop-zone" id="hDropZone">Kéo thả ảnh vào đây, hoặc bấm để chọn ảnh</div>
+          <input type="file" id="hFileInput" accept="image/*" multiple style="display:none">
+          <div class="thumb-row" id="hThumbs"></div>
+        </div>
+
+        <button type="button" id="btnAddHero" class="btn btn--primary">Thêm vào ảnh nền</button>
+        <div class="a-log" id="heroLog"></div>
+      </div>
+    </div>
+
+    <!-- TAB: PROJECT LIST -->
+    <div class="admin-panel" id="panel-project-list">
+      <div class="admin-card">
+        <h2>Danh sách dự án hiện có</h2>
+        <p class="desc">Đọc trực tiếp từ trang "Toàn bộ dự án". Bấm "Làm mới" sau khi thêm dự án mới.</p>
+        <button type="button" id="btnRefreshList" class="btn btn--light" style="margin-bottom:18px">Làm mới danh sách</button>
+        <div class="project-list" id="projectList"></div>
+      </div>
+    </div>
+
+    <!-- TAB: SETTINGS -->
+    <div class="admin-panel" id="panel-settings">
+      <div class="admin-card">
+        <h2>Cài đặt</h2>
+        <div class="check-row">
+          <input type="checkbox" id="autoHeroToggle">
+          <label for="autoHeroToggle">Tự động thêm ảnh đại diện của dự án mới vào ảnh nền Trang chủ &amp; Dự án khi tạo dự án</label>
+        </div>
+        <p class="desc" style="margin-top:14px">Cài đặt được lưu trên trình duyệt này (không ảnh hưởng đến người xem website).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/js/main.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
