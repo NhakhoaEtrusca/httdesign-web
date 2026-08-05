@@ -693,8 +693,8 @@ p { margin: 0 0 1em; font-weight: 300; }
   .team-row { flex-direction: column; }
   .team-item { border-left: 0; border-top: 1px solid var(--color-border); padding-top: 24px; }
   .team-item:first-child { border-top: 0; }
-  .hero-slogan-block { top: 150px; transform: translateX(-50%); }
-  .hero-slogan { font-size: clamp(24px, 7vw, 34px); }
+  .hero-slogan-block { top: 210px; transform: translateX(-50%); }
+  .hero-slogan { font-size: clamp(22px, 6.4vw, 30px); }
   .gallery { grid-template-columns: repeat(2, 1fr); }
   .gallery .g-wide, .gallery .g-tall, .gallery .g-half, .gallery .g-third { grid-column: span 2; grid-row: span 1; aspect-ratio: 4/3; }
   .footer-grid { grid-template-columns: 1fr; gap: 32px; }
