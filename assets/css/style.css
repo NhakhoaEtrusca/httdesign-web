@@ -477,14 +477,10 @@ p { margin: 0 0 1em; font-weight: 300; }
 .story h2 { font-size: clamp(24px, 3.2vw, 34px); font-weight: 300; }
 .story p { color: var(--color-text-muted); font-size: 16px; font-weight: 300; }
 
-.gallery { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px; }
-.gallery figure { margin: 0; overflow: hidden; border-radius: var(--radius); cursor: zoom-in; }
-.gallery figure img { width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+.gallery { column-count: 3; column-gap: 12px; margin-bottom: 24px; }
+.gallery figure { margin: 0 0 12px; overflow: hidden; border-radius: var(--radius); cursor: zoom-in; break-inside: avoid; }
+.gallery figure img { width: 100%; height: auto; display: block; object-fit: contain; transition: transform .5s ease; }
 .gallery figure:hover img { transform: scale(1.05); }
-.gallery .g-wide { grid-column: span 4; grid-row: span 2; position: relative; }
-.gallery .g-tall { grid-column: span 2; grid-row: span 2; position: relative; }
-.gallery .g-half { grid-column: span 3; position: relative; }
-.gallery .g-third { grid-column: span 2; position: relative; }
 
 .cta-band {
   text-align: center;
@@ -696,8 +692,7 @@ p { margin: 0 0 1em; font-weight: 300; }
   .hero-slogan-block { top: 210px; transform: translateX(-50%); }
   .hero-slogan { font-size: clamp(22px, 6.4vw, 30px); }
   .brand img { height: 30px; }
-  .gallery { grid-template-columns: repeat(2, 1fr); }
-  .gallery .g-wide, .gallery .g-tall, .gallery .g-half, .gallery .g-third { grid-column: span 2; grid-row: span 1; aspect-ratio: 4/3; }
+  .gallery { column-count: 2; }
   .footer-grid { grid-template-columns: 1fr; gap: 32px; }
   .masonry { column-count: 1; }
   .hero--top .hero-inner { padding-top: 120px; }
