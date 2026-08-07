@@ -198,6 +198,43 @@
         </div>
         <p class="desc" style="margin-top:14px">Cài đặt được lưu trên trình duyệt này (không ảnh hưởng đến người xem website).</p>
       </div>
+
+      <div class="admin-card">
+        <h2>Đồng bộ tự động lên GitHub</h2>
+        <p class="desc">Khi bật, mỗi lần bạn tạo dự án hoặc thêm ảnh nền, hệ thống sẽ tự động đẩy thay đổi lên GitHub — web thật (httdesign.art) cập nhật sau 1-2 phút, không cần thao tác gì thêm.</p>
+        <div class="warn-box">
+          Cần tạo <b>Personal Access Token</b> tại
+          <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noopener">github.com/settings/tokens</a>
+          (chọn <b>Fine-grained token</b>, giới hạn quyền vào đúng repo <code>httdesign-web</code>, quyền <b>Contents: Read and write</b>).
+          Token được lưu trên trình duyệt máy này, không gửi đi đâu khác ngoài GitHub. Không dùng admin tool này trên máy lạ/máy dùng chung.
+        </div>
+        <div class="a-row">
+          <div class="a-field">
+            <label>Chủ repo (owner)</label>
+            <input type="text" id="ghOwner" placeholder="NhakhoaEtrusca">
+          </div>
+          <div class="a-field">
+            <label>Tên repo</label>
+            <input type="text" id="ghRepo" placeholder="httdesign-web">
+          </div>
+        </div>
+        <div class="a-row">
+          <div class="a-field">
+            <label>Nhánh (branch)</label>
+            <input type="text" id="ghBranch" placeholder="master">
+          </div>
+          <div class="a-field">
+            <label>Personal Access Token</label>
+            <input type="password" id="ghToken" placeholder="github_pat_...">
+          </div>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="ghAuto">
+          <label for="ghAuto">Tự động đẩy lên GitHub sau khi tạo/lưu</label>
+        </div>
+        <button type="button" id="btnSaveGh" class="btn btn--primary">Lưu cài đặt GitHub</button>
+        <span id="ghSaveStatus" style="display:none;margin-left:12px;color:#2a6b3d;font-size:13px">✓ Đã lưu</span>
+      </div>
     </div>
   </div>
 </div>

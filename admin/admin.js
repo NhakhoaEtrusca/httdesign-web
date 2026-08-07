@@ -91,6 +91,73 @@
     await writable.close();
   }
 
+  /* ---------- GitHub auto-push ---------- */
+  function ghSettings() {
+    return {
+      owner: localStorage.getItem('htt_gh_owner') || 'NhakhoaEtrusca',
+      repo: localStorage.getItem('htt_gh_repo') || 'httdesign-web',
+      branch: localStorage.getItem('htt_gh_branch') || 'master',
+      token: localStorage.getItem('htt_gh_token') || '',
+      auto: localStorage.getItem('htt_gh_auto') === '1'
+    };
+  }
+
+  function blobToBase64(blob) {
+    return blob.arrayBuffer().then(function (buf) {
+      var bytes = new Uint8Array(buf);
+      var binary = '';
+      var chunk = 0x8000;
+      for (var i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    });
+  }
+
+  function textToBase64(str) {
+    return btoa(unescape(encodeURIComponent(str)));
+  }
+
+  async function ghPushFile(path, base64Content, message) {
+    var s = ghSettings();
+    if (!s.token) throw new Error('Chưa cài Token GitHub trong tab Cài đặt');
+    var api = 'https://api.github.com/repos/' + s.owner + '/' + s.repo + '/contents/' + path;
+    var sha = null;
+    var getRes = await fetch(api + '?ref=' + s.branch, {
+      headers: { 'Authorization': 'Bearer ' + s.token, 'Accept': 'application/vnd.github+json' }
+    });
+    if (getRes.ok) { var j = await getRes.json(); sha = j.sha; }
+    else if (getRes.status !== 404) {
+      var e1 = await getRes.json().catch(function () { return {}; });
+      throw new Error('Lỗi kiểm tra ' + path + ': ' + (e1.message || getRes.status));
+    }
+    var body = { message: message, content: base64Content, branch: s.branch };
+    if (sha) body.sha = sha;
+    var putRes = await fetch(api, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + s.token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!putRes.ok) {
+      var err = await putRes.json().catch(function () { return {}; });
+      throw new Error('Lỗi đẩy ' + path + ': ' + (err.message || putRes.status));
+    }
+  }
+
+  async function ghPushBinary(path, blob, message) {
+    var b64 = await blobToBase64(blob);
+    return ghPushFile(path, b64, message);
+  }
+
+  async function ghPushText(path, text, message) {
+    var b64 = textToBase64(text);
+    return ghPushFile(path, b64, message);
+  }
+
   /* ---------- Connect folder ---------- */
   var btnConnect = document.getElementById('btnConnect');
   var connStatus = document.getElementById('connStatus');
@@ -139,6 +206,33 @@
   autoHeroToggle.checked = localStorage.getItem('htt_auto_hero') === '1';
   autoHeroToggle.addEventListener('change', function () {
     localStorage.setItem('htt_auto_hero', autoHeroToggle.checked ? '1' : '0');
+  });
+
+  var ghOwnerEl = document.getElementById('ghOwner');
+  var ghRepoEl = document.getElementById('ghRepo');
+  var ghBranchEl = document.getElementById('ghBranch');
+  var ghTokenEl = document.getElementById('ghToken');
+  var ghAutoEl = document.getElementById('ghAuto');
+  var ghSaveStatus = document.getElementById('ghSaveStatus');
+
+  (function initGhSettings() {
+    var s = ghSettings();
+    ghOwnerEl.value = s.owner;
+    ghRepoEl.value = s.repo;
+    ghBranchEl.value = s.branch;
+    ghTokenEl.value = s.token;
+    ghAutoEl.checked = s.auto;
+  })();
+
+  document.getElementById('btnSaveGh').addEventListener('click', function () {
+    localStorage.setItem('htt_gh_owner', ghOwnerEl.value.trim());
+    localStorage.setItem('htt_gh_repo', ghRepoEl.value.trim());
+    localStorage.setItem('htt_gh_branch', ghBranchEl.value.trim());
+    localStorage.setItem('htt_gh_token', ghTokenEl.value.trim());
+    localStorage.setItem('htt_gh_auto', ghAutoEl.checked ? '1' : '0');
+    ghSaveStatus.textContent = '✓ Đã lưu cài đặt GitHub';
+    ghSaveStatus.style.display = 'inline';
+    setTimeout(function () { ghSaveStatus.style.display = 'none'; }, 2500);
   });
 
   /* ---------- Drop zone / uploader ---------- */
@@ -250,25 +344,32 @@
     var data = { name: name, slug: slug, category: category, location: location, year: year, storyTitle: storyTitle, story: story, images: newProjectFiles };
 
     try {
+      var pushedBlobs = [];
+
       log(addLog, 'Đang xử lý ' + newProjectFiles.length + ' ảnh...');
       for (var i = 0; i < newProjectFiles.length; i++) {
         var blob = await imageToWebpBlob(newProjectFiles[i], 2200);
-        await writeBinaryFile('assets/img/projects/' + slug + '/' + pad3(i) + '.webp', blob);
+        var imgPath = 'assets/img/projects/' + slug + '/' + pad3(i) + '.webp';
+        await writeBinaryFile(imgPath, blob);
+        pushedBlobs.push({ path: imgPath, blob: blob });
         log(addLog, '  ✓ Ảnh ' + (i + 1) + '/' + newProjectFiles.length + ' đã lưu');
       }
 
       log(addLog, 'Đang tạo trang dự án...');
       var pageHtml = buildProjectHtml(data);
-      await writeTextFile('du-an/' + slug + '.html', pageHtml);
-      log(addLog, '  ✓ Đã tạo du-an/' + slug + '.html');
+      var pagePath = 'du-an/' + slug + '.html';
+      await writeTextFile(pagePath, pageHtml);
+      log(addLog, '  ✓ Đã tạo ' + pagePath);
 
       log(addLog, 'Đang thêm vào danh mục "' + CATEGORY_PAGES[category].label + '"...');
       var catFile = 'du-an/' + CATEGORY_PAGES[category].file;
       var catContent = await readTextFile(catFile);
       var catTile = buildTileHtml(data, false);
+      var catUpdated = false;
       if (catContent.indexOf('<div class="masonry">') !== -1) {
         catContent = catContent.replace('<div class="masonry">', '<div class="masonry">\n' + catTile);
         await writeTextFile(catFile, catContent);
+        catUpdated = true;
         log(addLog, '  ✓ Đã thêm vào ' + catFile);
       } else {
         log(addLog, '  ⚠ Không tìm thấy vị trí lưới ảnh trong ' + catFile);
@@ -283,23 +384,49 @@
         log(addLog, '  ✓ Đã thêm vào du-an/index.html');
       }
 
+      var homeContent = null;
       if (autoHeroToggle.checked && category !== 'cad') {
         log(addLog, 'Đang thêm ảnh vào vòng xoay ảnh nền (tự động)...');
         var slideDiv = '  <div class="hero-slide" style="background-image:url(\'assets/img/projects/' + slug + '/000.webp\')"></div>\n';
-        var homeContent = await readTextFile('index.html');
+        homeContent = await readTextFile('index.html');
         homeContent = insertHeroSlide(homeContent, slideDiv);
         await writeTextFile('index.html', homeContent);
 
         var slideDivRel = slideDiv.replace("url('assets/", "url('../assets/");
-        var projContent = await readTextFile('du-an/index.html');
-        projContent = insertHeroSlide(projContent, slideDivRel);
-        await writeTextFile('du-an/index.html', projContent);
+        allContent = insertHeroSlide(allContent, slideDivRel);
+        await writeTextFile('du-an/index.html', allContent);
         log(addLog, '  ✓ Đã thêm ảnh nền');
       }
 
       log(addLog, '');
-      log(addLog, '✅ Hoàn tất! Dự án "' + name + '" đã được thêm vào website.');
-      log(addLog, 'Nếu website đã đưa lên GitHub Pages, nhớ đồng bộ (commit & push) để cập nhật bản thật.');
+      log(addLog, '✅ Hoàn tất (đã lưu trên máy)! Dự án "' + name + '" đã được thêm vào website.');
+
+      if (ghSettings().auto) {
+        log(addLog, '');
+        log(addLog, 'Đang đẩy lên GitHub...');
+        try {
+          for (var k = 0; k < pushedBlobs.length; k++) {
+            await ghPushBinary(pushedBlobs[k].path, pushedBlobs[k].blob, 'Add project image (' + name + ')');
+            log(addLog, '  ✓ Đã đẩy ' + pushedBlobs[k].path);
+          }
+          await ghPushText(pagePath, pageHtml, 'Add project page: ' + name);
+          log(addLog, '  ✓ Đã đẩy ' + pagePath);
+          if (catUpdated) {
+            await ghPushText(catFile, catContent, 'Add "' + name + '" to ' + CATEGORY_PAGES[category].label);
+            log(addLog, '  ✓ Đã đẩy ' + catFile);
+          }
+          await ghPushText('du-an/index.html', allContent, 'Add "' + name + '" to all-projects page');
+          log(addLog, '  ✓ Đã đẩy du-an/index.html');
+          if (homeContent !== null) {
+            await ghPushText('index.html', homeContent, 'Add "' + name + '" hero image to homepage');
+            log(addLog, '  ✓ Đã đẩy index.html');
+          }
+          log(addLog, '✅ Đã đẩy lên GitHub — web thật sẽ cập nhật sau 1-2 phút.');
+        } catch (ghErr) {
+          log(addLog, '❌ Lỗi đẩy GitHub: ' + ghErr.message);
+          log(addLog, '   (File đã lưu an toàn trên máy, bạn có thể nhờ đẩy lại sau)');
+        }
+      }
 
       document.getElementById('pName').value = '';
       document.getElementById('pLocation').value = '';
@@ -331,17 +458,20 @@
 
     try {
       var savedPaths = [];
+      var savedBlobs = [];
       for (var i = 0; i < heroFiles.length; i++) {
         var blob = await imageToWebpBlob(heroFiles[i], 2200);
         var stamp = Date.now() + '-' + i;
         var relPath = 'assets/img/hero/custom-' + stamp + '.webp';
         await writeBinaryFile(relPath, blob);
         savedPaths.push(relPath);
+        savedBlobs.push(blob);
         log(heroLog, '✓ Đã lưu ảnh ' + (i + 1) + '/' + heroFiles.length);
       }
 
+      var homeContent = null, projContent = null;
       if (target === 'home' || target === 'both') {
-        var homeContent = await readTextFile('index.html');
+        homeContent = await readTextFile('index.html');
         savedPaths.forEach(function (p) {
           homeContent = insertHeroSlide(homeContent, '  <div class="hero-slide" style="background-image:url(\'' + p + '\')"></div>\n');
         });
@@ -349,7 +479,7 @@
         log(heroLog, '✓ Đã thêm vào ảnh nền Trang chủ');
       }
       if (target === 'projects' || target === 'both') {
-        var projContent = await readTextFile('du-an/index.html');
+        projContent = await readTextFile('du-an/index.html');
         savedPaths.forEach(function (p) {
           projContent = insertHeroSlide(projContent, '  <div class="hero-slide" style="background-image:url(\'../' + p + '\')"></div>\n');
         });
@@ -357,7 +487,31 @@
         log(heroLog, '✓ Đã thêm vào ảnh nền trang Dự án');
       }
       log(heroLog, '');
-      log(heroLog, '✅ Hoàn tất!');
+      log(heroLog, '✅ Hoàn tất (đã lưu trên máy)!');
+
+      if (ghSettings().auto) {
+        log(heroLog, '');
+        log(heroLog, 'Đang đẩy lên GitHub...');
+        try {
+          for (var j = 0; j < savedPaths.length; j++) {
+            await ghPushBinary(savedPaths[j], savedBlobs[j], 'Add hero image via admin (' + savedPaths[j] + ')');
+            log(heroLog, '  ✓ Đã đẩy ' + savedPaths[j]);
+          }
+          if (homeContent !== null) {
+            await ghPushText('index.html', homeContent, 'Update homepage hero slides via admin');
+            log(heroLog, '  ✓ Đã đẩy index.html');
+          }
+          if (projContent !== null) {
+            await ghPushText('du-an/index.html', projContent, 'Update projects page hero slides via admin');
+            log(heroLog, '  ✓ Đã đẩy du-an/index.html');
+          }
+          log(heroLog, '✅ Đã đẩy lên GitHub — web thật sẽ cập nhật sau 1-2 phút.');
+        } catch (ghErr) {
+          log(heroLog, '❌ Lỗi đẩy GitHub: ' + ghErr.message);
+          log(heroLog, '   (File đã lưu an toàn trên máy, bạn có thể nhờ đẩy lại sau)');
+        }
+      }
+
       heroFiles.length = 0;
       document.getElementById('hThumbs').innerHTML = '';
     } catch (e) {
