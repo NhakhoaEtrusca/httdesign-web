@@ -5,7 +5,9 @@
   /* Homepage hero slideshow — rotates background every 5s */
   var slides = document.querySelectorAll('.hero .hero-slide');
   if (slides.length > 1) {
-    var slideIndex = 0;
+    var slideIndex = Math.floor(Math.random() * slides.length);
+    slides[0].classList.remove('is-active');
+    slides[slideIndex].classList.add('is-active');
     setInterval(function () {
       slides[slideIndex].classList.remove('is-active');
       slideIndex = (slideIndex + 1) % slides.length;

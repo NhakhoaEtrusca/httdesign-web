@@ -202,12 +202,6 @@
   });
 
   /* ---------- Settings ---------- */
-  var autoHeroToggle = document.getElementById('autoHeroToggle');
-  autoHeroToggle.checked = localStorage.getItem('htt_auto_hero') === '1';
-  autoHeroToggle.addEventListener('change', function () {
-    localStorage.setItem('htt_auto_hero', autoHeroToggle.checked ? '1' : '0');
-  });
-
   var ghOwnerEl = document.getElementById('ghOwner');
   var ghRepoEl = document.getElementById('ghRepo');
   var ghBranchEl = document.getElementById('ghBranch');
@@ -385,18 +379,6 @@
       }
 
       var homeContent = null;
-      if (autoHeroToggle.checked && category !== 'cad') {
-        log(addLog, 'Đang thêm ảnh vào vòng xoay ảnh nền (tự động)...');
-        var slideDiv = '  <div class="hero-slide" style="background-image:url(\'assets/img/projects/' + slug + '/000.webp\')"></div>\n';
-        homeContent = await readTextFile('index.html');
-        homeContent = insertHeroSlide(homeContent, slideDiv);
-        await writeTextFile('index.html', homeContent);
-
-        var slideDivRel = slideDiv.replace("url('assets/", "url('../assets/");
-        allContent = insertHeroSlide(allContent, slideDivRel);
-        await writeTextFile('du-an/index.html', allContent);
-        log(addLog, '  ✓ Đã thêm ảnh nền');
-      }
 
       log(addLog, '');
       log(addLog, '✅ Hoàn tất (đã lưu trên máy)! Dự án "' + name + '" đã được thêm vào website.');
