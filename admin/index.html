@@ -94,6 +94,7 @@
     <div class="admin-tabs">
       <button class="admin-tab-btn is-active" data-tab="add-project">Thêm dự án mới</button>
       <button class="admin-tab-btn" data-tab="hero-images">Ảnh nền Trang chủ &amp; Dự án</button>
+      <button class="admin-tab-btn" data-tab="edit-project">Sửa dự án</button>
       <button class="admin-tab-btn" data-tab="project-list">Danh sách dự án</button>
       <button class="admin-tab-btn" data-tab="settings">Cài đặt</button>
     </div>
@@ -175,6 +176,59 @@
 
         <button type="button" id="btnAddHero" class="btn btn--primary">Thêm vào ảnh nền</button>
         <div class="a-log" id="heroLog"></div>
+      </div>
+    </div>
+
+    <!-- TAB: EDIT PROJECT -->
+    <div class="admin-panel" id="panel-edit-project">
+      <div class="admin-card">
+        <h2>Sửa dự án đã đăng</h2>
+        <p class="desc">Chọn 1 dự án để sửa nội dung và hình ảnh. Toàn bộ ảnh trong thư mục dự án sẽ hiện ra bên dưới — ảnh đầu tiên là ảnh đại diện, bạn có thể xóa ảnh cũ hoặc thêm ảnh mới.</p>
+        <div class="a-field">
+          <label>Chọn dự án</label>
+          <select id="eProjectSelect"><option value="">— Chọn dự án —</option></select>
+        </div>
+
+        <div id="eEditArea" style="display:none">
+          <div class="a-row">
+            <div class="a-field">
+              <label>Tên dự án</label>
+              <input type="text" id="eName">
+            </div>
+            <div class="a-field">
+              <label>Địa điểm</label>
+              <input type="text" id="eLocation">
+            </div>
+          </div>
+          <div class="a-row">
+            <div class="a-field">
+              <label>Năm hoàn thành</label>
+              <input type="text" id="eYear">
+            </div>
+            <div class="a-field">
+              <label>Tiêu đề câu chuyện thiết kế</label>
+              <input type="text" id="eStoryTitle">
+            </div>
+          </div>
+          <div class="a-field">
+            <label>Nội dung mô tả (mỗi đoạn cách nhau 1 dòng trống)</label>
+            <textarea id="eStory"></textarea>
+          </div>
+
+          <div class="a-field">
+            <label>Ảnh hiện có (ảnh đầu tiên là ảnh đại diện)</label>
+            <div class="thumb-row" id="eExistingThumbs"></div>
+          </div>
+          <div class="a-field">
+            <label>Thêm ảnh mới</label>
+            <div class="drop-zone" id="eDropZone">Kéo thả ảnh vào đây, hoặc bấm để chọn ảnh</div>
+            <input type="file" id="eFileInput" accept="image/*" multiple style="display:none">
+            <div class="thumb-row" id="eNewThumbs"></div>
+          </div>
+
+          <button type="button" id="btnSaveEdit" class="btn btn--primary">Lưu thay đổi</button>
+          <div class="a-log" id="editLog"></div>
+        </div>
       </div>
     </div>
 

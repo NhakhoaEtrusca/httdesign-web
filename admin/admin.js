@@ -81,6 +81,24 @@
     await writable.close();
   }
 
+  async function listDirFiles(path) {
+    var dir;
+    try { dir = await getDir(path, false); } catch (e) { return []; }
+    var files = [];
+    for await (var entry of dir.values()) {
+      if (entry.kind === 'file') files.push(entry.name);
+    }
+    files.sort();
+    return files;
+  }
+
+  async function deleteLocalFile(path) {
+    var parts = path.split('/');
+    var fileName = parts.pop();
+    var dir = parts.length ? await getDir(parts.join('/'), false) : rootHandle;
+    await dir.removeEntry(fileName);
+  }
+
   async function writeBinaryFile(path, blob) {
     var parts = path.split('/');
     var fileName = parts.pop();
@@ -158,6 +176,29 @@
     return ghPushFile(path, b64, message);
   }
 
+  async function ghListDir(path) {
+    var s = ghSettings();
+    if (!s.token) return [];
+    var api = 'https://api.github.com/repos/' + s.owner + '/' + s.repo + '/contents/' + path + '?ref=' + s.branch;
+    var res = await fetch(api, { headers: { 'Authorization': 'Bearer ' + s.token, 'Accept': 'application/vnd.github+json' } });
+    if (!res.ok) return [];
+    return res.json();
+  }
+
+  async function ghDeleteFile(path, sha, message) {
+    var s = ghSettings();
+    var api = 'https://api.github.com/repos/' + s.owner + '/' + s.repo + '/contents/' + path;
+    var res = await fetch(api, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + s.token, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: message, sha: sha, branch: s.branch })
+    });
+    if (!res.ok) {
+      var err = await res.json().catch(function () { return {}; });
+      throw new Error('Lỗi xóa ' + path + ': ' + (err.message || res.status));
+    }
+  }
+
   /* ---------- Connect folder ---------- */
   var btnConnect = document.getElementById('btnConnect');
   var connStatus = document.getElementById('connStatus');
@@ -186,6 +227,7 @@
       connText.textContent = 'Đã kết nối: ' + handle.name;
       mainTools.style.display = 'block';
       refreshProjectList();
+      populateEditSelect();
     } catch (e) {
       if (e.name !== 'AbortError') alert('Không thể kết nối thư mục: ' + e.message);
     }
@@ -521,4 +563,211 @@
     }
   }
   document.getElementById('btnRefreshList').addEventListener('click', refreshProjectList);
+
+  /* ---------- Edit project ---------- */
+  function replaceTile(content, slug, newTile) {
+    var re = new RegExp('<a class="masonry-tile"[^>]*href="' + slug + '\\.html"[\\s\\S]*?<\\/a>\\n?');
+    if (!re.test(content)) return null;
+    return content.replace(re, newTile);
+  }
+
+  async function populateEditSelect() {
+    eProjectSelect.innerHTML = '<option value="">— Chọn dự án —</option>';
+    if (!rootHandle) return;
+    try {
+      var content = await readTextFile('du-an/index.html');
+      var re = /<a class="masonry-tile" data-category="([^"]*)" href="([^"]+)"[\s\S]*?<h4>([^<]*)<\/h4>/g;
+      var m;
+      while ((m = re.exec(content)) !== null) {
+        var category = m[1], slug = m[2].replace(/\.html$/, ''), name = m[3];
+        var opt = document.createElement('option');
+        opt.value = slug;
+        opt.dataset.category = category;
+        opt.textContent = name;
+        eProjectSelect.appendChild(opt);
+      }
+    } catch (e) {}
+  }
+
+  var eProjectSelect = document.getElementById('eProjectSelect');
+  var eEditArea = document.getElementById('eEditArea');
+  var eExistingThumbs = document.getElementById('eExistingThumbs');
+  var eName = document.getElementById('eName');
+  var eLocation = document.getElementById('eLocation');
+  var eYear = document.getElementById('eYear');
+  var eStoryTitle = document.getElementById('eStoryTitle');
+  var eStory = document.getElementById('eStory');
+  var editLog = document.getElementById('editLog');
+  var editState = null;
+
+  document.querySelector('[data-tab="edit-project"]').addEventListener('click', populateEditSelect);
+
+  function renderExistingThumbs() {
+    eExistingThumbs.innerHTML = '';
+    editState.existingFiles.forEach(function (fname) {
+      if (editState.removed.indexOf(fname) !== -1) return;
+      var d = document.createElement('div');
+      d.className = 'thumb';
+      var img = document.createElement('img');
+      img.src = editState.imgDirPath + '/' + fname;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = '×';
+      btn.addEventListener('click', function () {
+        editState.removed.push(fname);
+        renderExistingThumbs();
+      });
+      d.appendChild(img); d.appendChild(btn);
+      eExistingThumbs.appendChild(d);
+    });
+  }
+
+  var eNewFiles = [];
+  bindUploader('eDropZone', 'eFileInput', 'eNewThumbs', eNewFiles);
+
+  eProjectSelect.addEventListener('change', async function () {
+    editLog.textContent = '';
+    editLog.classList.remove('show');
+    var slug = eProjectSelect.value;
+    if (!slug) { eEditArea.style.display = 'none'; editState = null; return; }
+    var opt = eProjectSelect.options[eProjectSelect.selectedIndex];
+    var category = opt.dataset.category;
+
+    try {
+      var pagePath = 'du-an/' + slug + '.html';
+      var html = await readTextFile(pagePath);
+
+      var titleM = /<h1>([^<]*)<\/h1>/.exec(html);
+      var locM = /<span>Địa điểm<\/span><b>([^<]*)<\/b>/.exec(html);
+      var yearM = /<span>Năm hoàn thành<\/span><b>([^<]*)<\/b>/.exec(html);
+      var storyBlockM = /<div class="story">[\s\S]*?<h2>([^<]*)<\/h2>\s*<\/div>\s*<div>\s*([\s\S]*?)\s*<\/div>\s*<\/div>/.exec(html);
+
+      if (!titleM || !storyBlockM) {
+        alert('Trang dự án này có định dạng khác với chuẩn admin tool, chưa hỗ trợ sửa tự động. Vui lòng sửa file HTML trực tiếp.');
+        eEditArea.style.display = 'none';
+        return;
+      }
+
+      eName.value = titleM[1];
+      eLocation.value = locM ? locM[1] : '';
+      eYear.value = yearM ? yearM[1] : '';
+      eStoryTitle.value = storyBlockM[1];
+      var paras = [];
+      var pRe = /<p>([\s\S]*?)<\/p>/g, pm;
+      while ((pm = pRe.exec(storyBlockM[2])) !== null) paras.push(pm[1].trim());
+      eStory.value = paras.join('\n\n');
+
+      var imgDir = 'assets/img/projects/' + slug;
+      var existingFiles = await listDirFiles(imgDir);
+      existingFiles = existingFiles.filter(function (f) { return /\.webp$/i.test(f); });
+
+      editState = { slug: slug, category: category, imgDir: imgDir, imgDirPath: '../' + imgDir, pagePath: pagePath, existingFiles: existingFiles, removed: [] };
+      eNewFiles.length = 0;
+      document.getElementById('eNewThumbs').innerHTML = '';
+      renderExistingThumbs();
+      eEditArea.style.display = 'block';
+    } catch (e) {
+      alert('Không đọc được dự án: ' + e.message);
+    }
+  });
+
+  document.getElementById('btnSaveEdit').addEventListener('click', async function () {
+    if (!editState) return;
+    editLog.textContent = '';
+    var name = eName.value.trim();
+    if (!name) { alert('Vui lòng nhập tên dự án.'); return; }
+    var keepFiles = editState.existingFiles.filter(function (f) { return editState.removed.indexOf(f) === -1; });
+    if (!keepFiles.length && !eNewFiles.length) { alert('Dự án phải có ít nhất 1 ảnh.'); return; }
+
+    try {
+      log(editLog, 'Đang đọc lại ảnh hiện có...');
+      var keptBlobs = [];
+      for (var i = 0; i < keepFiles.length; i++) {
+        var fh = await (await getDir(editState.imgDir, false)).getFileHandle(keepFiles[i]);
+        keptBlobs.push(await fh.getFile());
+      }
+      log(editLog, 'Đang chuyển đổi ' + eNewFiles.length + ' ảnh mới...');
+      var newBlobs = [];
+      for (var j = 0; j < eNewFiles.length; j++) {
+        newBlobs.push(await imageToWebpBlob(eNewFiles[j], 2200));
+      }
+
+      var finalBlobs = keptBlobs.concat(newBlobs);
+      var oldCount = editState.existingFiles.length;
+
+      log(editLog, 'Đang xóa ảnh cũ trên máy...');
+      for (var k = 0; k < editState.existingFiles.length; k++) {
+        await deleteLocalFile(editState.imgDir + '/' + editState.existingFiles[k]);
+      }
+      log(editLog, 'Đang lưu ' + finalBlobs.length + ' ảnh...');
+      for (var n = 0; n < finalBlobs.length; n++) {
+        await writeBinaryFile(editState.imgDir + '/' + pad3(n) + '.webp', finalBlobs[n]);
+      }
+
+      var data = {
+        name: name, slug: editState.slug, category: editState.category,
+        location: eLocation.value.trim(), year: eYear.value.trim(),
+        storyTitle: eStoryTitle.value.trim(), story: eStory.value.trim(),
+        images: finalBlobs
+      };
+
+      log(editLog, 'Đang cập nhật trang dự án...');
+      var pageHtml = buildProjectHtml(data);
+      await writeTextFile(editState.pagePath, pageHtml);
+
+      log(editLog, 'Đang cập nhật danh mục...');
+      var catFile = 'du-an/' + CATEGORY_PAGES[editState.category].file;
+      var catContent = await readTextFile(catFile);
+      var catNew = replaceTile(catContent, editState.slug, buildTileHtml(data, false));
+      if (catNew !== null) { catContent = catNew; await writeTextFile(catFile, catContent); }
+
+      var allContent = await readTextFile('du-an/index.html');
+      var allNew = replaceTile(allContent, editState.slug, buildTileHtml(data, true));
+      if (allNew !== null) { allContent = allNew; await writeTextFile('du-an/index.html', allContent); }
+
+      log(editLog, '');
+      log(editLog, '✅ Hoàn tất (đã lưu trên máy)!');
+
+      if (ghSettings().auto) {
+        log(editLog, '');
+        log(editLog, 'Đang đẩy lên GitHub...');
+        try {
+          for (var p = 0; p < finalBlobs.length; p++) {
+            await ghPushBinary(editState.imgDir + '/' + pad3(p) + '.webp', finalBlobs[p], 'Update project image (' + name + ')');
+          }
+          if (finalBlobs.length < oldCount) {
+            var ghFiles = await ghListDir(editState.imgDir);
+            for (var q = 0; q < ghFiles.length; q++) {
+              var gm = /^(\d+)\.webp$/.exec(ghFiles[q].name);
+              if (gm && parseInt(gm[1], 10) >= finalBlobs.length) {
+                await ghDeleteFile(ghFiles[q].path, ghFiles[q].sha, 'Remove unused project image (' + name + ')');
+              }
+            }
+          }
+          log(editLog, '  ✓ Đã đẩy ảnh');
+          await ghPushText(editState.pagePath, pageHtml, 'Update project page: ' + name);
+          log(editLog, '  ✓ Đã đẩy ' + editState.pagePath);
+          if (catNew !== null) {
+            await ghPushText(catFile, catContent, 'Update "' + name + '" in ' + CATEGORY_PAGES[editState.category].label);
+            log(editLog, '  ✓ Đã đẩy ' + catFile);
+          }
+          if (allNew !== null) {
+            await ghPushText('du-an/index.html', allContent, 'Update "' + name + '" in all-projects page');
+            log(editLog, '  ✓ Đã đẩy du-an/index.html');
+          }
+          log(editLog, '✅ Đã đẩy lên GitHub — web thật sẽ cập nhật sau 1-2 phút.');
+        } catch (ghErr) {
+          log(editLog, '❌ Lỗi đẩy GitHub: ' + ghErr.message);
+          log(editLog, '   (File đã lưu an toàn trên máy, bạn có thể nhờ đẩy lại sau)');
+        }
+      }
+
+      eProjectSelect.value = '';
+      eEditArea.style.display = 'none';
+      editState = null;
+      refreshProjectList();
+    } catch (e) {
+      log(editLog, '❌ Lỗi: ' + e.message);
+    }
+  });
 })();
