@@ -327,6 +327,9 @@ p { margin: 0 0 1em; font-weight: 300; }
 /* ---------- Stats strip ---------- */
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
 .stats--2 { grid-template-columns: repeat(2, 1fr); max-width: 420px; }
+.stats--3 { grid-template-columns: repeat(3, 1fr); max-width: 620px; align-items: center; }
+.stat--counter { display: flex; align-items: center; }
+.stat--counter img { height: 26px; }
 .stat b {
   font-family: var(--font-head);
   font-weight: 300;
