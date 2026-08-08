@@ -353,7 +353,7 @@
   }
 
   function buildTileHtml(data, withCategoryAttr) {
-    var heroImg = 'assets/img/projects/' + data.slug + '/000.webp';
+    var heroImg = '../assets/img/projects/' + data.slug + '/000.webp';
     var catAttr = withCategoryAttr ? (' data-category="' + data.category + '"') : '';
     return '      <a class="masonry-tile"' + catAttr + ' href="' + data.slug + '.html">\n' +
       '        <img src="' + heroImg + '" alt="' + data.name + '" loading="lazy">\n' +
