@@ -602,24 +602,39 @@
 
   document.querySelector('[data-tab="edit-project"]').addEventListener('click', populateEditSelect);
 
-  function renderExistingThumbs() {
+  var eThumbObjectUrls = [];
+  async function renderExistingThumbs() {
+    eThumbObjectUrls.forEach(function (u) { URL.revokeObjectURL(u); });
+    eThumbObjectUrls = [];
     eExistingThumbs.innerHTML = '';
-    editState.existingFiles.forEach(function (fname) {
-      if (editState.removed.indexOf(fname) !== -1) return;
+    var dir = await getDir(editState.imgDir, false);
+    for (var i = 0; i < editState.existingFiles.length; i++) {
+      var fname = editState.existingFiles[i];
+      if (editState.removed.indexOf(fname) !== -1) continue;
       var d = document.createElement('div');
       d.className = 'thumb';
       var img = document.createElement('img');
-      img.src = editState.imgDirPath + '/' + fname;
+      try {
+        var fh = await dir.getFileHandle(fname);
+        var blob = await fh.getFile();
+        var url = URL.createObjectURL(blob);
+        eThumbObjectUrls.push(url);
+        img.src = url;
+      } catch (e) {
+        img.alt = 'Không đọc được ' + fname;
+      }
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = '×';
-      btn.addEventListener('click', function () {
-        editState.removed.push(fname);
-        renderExistingThumbs();
-      });
+      (function (fn) {
+        btn.addEventListener('click', function () {
+          editState.removed.push(fn);
+          renderExistingThumbs();
+        });
+      })(fname);
       d.appendChild(img); d.appendChild(btn);
       eExistingThumbs.appendChild(d);
-    });
+    }
   }
 
   var eNewFiles = [];
@@ -664,7 +679,7 @@
       editState = { slug: slug, category: category, imgDir: imgDir, imgDirPath: '../' + imgDir, pagePath: pagePath, existingFiles: existingFiles, removed: [] };
       eNewFiles.length = 0;
       document.getElementById('eNewThumbs').innerHTML = '';
-      renderExistingThumbs();
+      await renderExistingThumbs();
       eEditArea.style.display = 'block';
     } catch (e) {
       alert('Không đọc được dự án: ' + e.message);
