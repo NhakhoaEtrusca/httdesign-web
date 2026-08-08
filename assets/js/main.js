@@ -15,6 +15,15 @@
     }, 5000);
   }
 
+  /* Visitor counter (homepage stats strip) */
+  var visitorCountEl = document.getElementById('visitorCount');
+  if (visitorCountEl) {
+    fetch('https://abacus.jasoncameron.dev/hit/httdesign.art/visits')
+      .then(function (res) { return res.json(); })
+      .then(function (data) { visitorCountEl.textContent = data.value.toLocaleString('vi-VN'); })
+      .catch(function () { visitorCountEl.textContent = '—'; });
+  }
+
   /* Header scroll state */
   var header = document.querySelector('.site-header');
   function onScroll() {
