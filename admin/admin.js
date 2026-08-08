@@ -671,44 +671,79 @@
     }
   });
 
+  var eSaving = false;
   document.getElementById('btnSaveEdit').addEventListener('click', async function () {
-    if (!editState) return;
+    if (!editState || eSaving) return;
     editLog.textContent = '';
     var name = eName.value.trim();
     if (!name) { alert('Vui lòng nhập tên dự án.'); return; }
     var keepFiles = editState.existingFiles.filter(function (f) { return editState.removed.indexOf(f) === -1; });
+    var hasRemovals = editState.removed.length > 0;
     if (!keepFiles.length && !eNewFiles.length) { alert('Dự án phải có ít nhất 1 ảnh.'); return; }
 
+    var btnSaveEdit = document.getElementById('btnSaveEdit');
+    eSaving = true;
+    btnSaveEdit.disabled = true;
     try {
-      log(editLog, 'Đang đọc lại ảnh hiện có...');
-      var keptBlobs = [];
-      for (var i = 0; i < keepFiles.length; i++) {
-        var fh = await (await getDir(editState.imgDir, false)).getFileHandle(keepFiles[i]);
-        keptBlobs.push(await fh.getFile());
-      }
       log(editLog, 'Đang chuyển đổi ' + eNewFiles.length + ' ảnh mới...');
       var newBlobs = [];
       for (var j = 0; j < eNewFiles.length; j++) {
         newBlobs.push(await imageToWebpBlob(eNewFiles[j], 2200));
       }
 
-      var finalBlobs = keptBlobs.concat(newBlobs);
+      var finalCount, pushList; // pushList: [{path, blob}] — only files that actually changed
       var oldCount = editState.existingFiles.length;
 
-      log(editLog, 'Đang xóa ảnh cũ trên máy...');
-      for (var k = 0; k < editState.existingFiles.length; k++) {
-        await deleteLocalFile(editState.imgDir + '/' + editState.existingFiles[k]);
-      }
-      log(editLog, 'Đang lưu ' + finalBlobs.length + ' ảnh...');
-      for (var n = 0; n < finalBlobs.length; n++) {
-        await writeBinaryFile(editState.imgDir + '/' + pad3(n) + '.webp', finalBlobs[n]);
+      if (!hasRemovals) {
+        // Pure append: existing kept files are never touched, read, or deleted.
+        log(editLog, 'Đang lưu ' + newBlobs.length + ' ảnh mới (không đụng ảnh cũ)...');
+        pushList = [];
+        for (var n = 0; n < newBlobs.length; n++) {
+          var newPath = editState.imgDir + '/' + pad3(oldCount + n) + '.webp';
+          await writeBinaryFile(newPath, newBlobs[n]);
+          pushList.push({ path: newPath, blob: newBlobs[n] });
+        }
+        finalCount = oldCount + newBlobs.length;
+      } else {
+        // Some images were removed → renumber to keep files consecutive (000..N-1),
+        // matching what the page template expects. Read kept blobs into memory FIRST,
+        // then write — never delete before the replacement content is safely captured.
+        log(editLog, 'Đang đọc lại ' + keepFiles.length + ' ảnh còn giữ lại...');
+        var keptBlobs = [];
+        for (var i = 0; i < keepFiles.length; i++) {
+          try {
+            var fh = await (await getDir(editState.imgDir, false)).getFileHandle(keepFiles[i]);
+            keptBlobs.push(await fh.getFile());
+          } catch (readErr) {
+            log(editLog, '  ⚠ Bỏ qua ' + keepFiles[i] + ' (không đọc được: ' + readErr.message + ')');
+          }
+        }
+        var finalBlobs = keptBlobs.concat(newBlobs);
+        if (!finalBlobs.length) throw new Error('Không còn ảnh nào để lưu.');
+
+        log(editLog, 'Đang ghi lại ' + finalBlobs.length + ' ảnh theo thứ tự mới...');
+        pushList = [];
+        for (var k = 0; k < finalBlobs.length; k++) {
+          var p3 = editState.imgDir + '/' + pad3(k) + '.webp';
+          await writeBinaryFile(p3, finalBlobs[k]);
+          pushList.push({ path: p3, blob: finalBlobs[k] });
+        }
+        finalCount = finalBlobs.length;
+
+        log(editLog, 'Đang dọn ảnh thừa...');
+        for (var m = 0; m < editState.existingFiles.length; m++) {
+          var om = /^(\d+)\.webp$/.exec(editState.existingFiles[m]);
+          if (om && parseInt(om[1], 10) >= finalCount) {
+            try { await deleteLocalFile(editState.imgDir + '/' + editState.existingFiles[m]); } catch (delErr) {}
+          }
+        }
       }
 
       var data = {
         name: name, slug: editState.slug, category: editState.category,
         location: eLocation.value.trim(), year: eYear.value.trim(),
         storyTitle: eStoryTitle.value.trim(), story: eStory.value.trim(),
-        images: finalBlobs
+        images: new Array(finalCount).fill(0)
       };
 
       log(editLog, 'Đang cập nhật trang dự án...');
@@ -732,14 +767,14 @@
         log(editLog, '');
         log(editLog, 'Đang đẩy lên GitHub...');
         try {
-          for (var p = 0; p < finalBlobs.length; p++) {
-            await ghPushBinary(editState.imgDir + '/' + pad3(p) + '.webp', finalBlobs[p], 'Update project image (' + name + ')');
+          for (var p = 0; p < pushList.length; p++) {
+            await ghPushBinary(pushList[p].path, pushList[p].blob, 'Update project image (' + name + ')');
           }
-          if (finalBlobs.length < oldCount) {
+          if (finalCount < oldCount) {
             var ghFiles = await ghListDir(editState.imgDir);
             for (var q = 0; q < ghFiles.length; q++) {
               var gm = /^(\d+)\.webp$/.exec(ghFiles[q].name);
-              if (gm && parseInt(gm[1], 10) >= finalBlobs.length) {
+              if (gm && parseInt(gm[1], 10) >= finalCount) {
                 await ghDeleteFile(ghFiles[q].path, ghFiles[q].sha, 'Remove unused project image (' + name + ')');
               }
             }
@@ -768,6 +803,9 @@
       refreshProjectList();
     } catch (e) {
       log(editLog, '❌ Lỗi: ' + e.message);
+    } finally {
+      eSaving = false;
+      btnSaveEdit.disabled = false;
     }
   });
 })();
