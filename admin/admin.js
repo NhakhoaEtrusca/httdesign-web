@@ -495,6 +495,7 @@
   var hExistingThumbs = document.getElementById('hExistingThumbs');
   var hTargetEl = document.getElementById('hTarget');
   var hRemoved = [];
+  var hSelected = [];
   var hExistingObjectUrls = [];
 
   async function loadLocalImagePreview(rootRelPath) {
@@ -529,6 +530,8 @@
       if (isRemoved) continue;
       var d = document.createElement('div');
       d.className = 'thumb';
+      var isSelected = hSelected.some(function (s) { return s.target === ent.target && s.url === ent.url; });
+      if (isSelected) d.classList.add('is-selected');
       var img = document.createElement('img');
       try {
         img.src = await loadLocalImagePreview(heroUrlToLocalPath(ent.url));
@@ -541,21 +544,46 @@
         tag.style.cssText = 'position:absolute;bottom:2px;left:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;font-size:9px;text-align:center;border-radius:3px;padding:1px 0';
         d.appendChild(tag);
       }
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = isSelected;
+      (function (e3, box) {
+        box.addEventListener('change', function () {
+          hSelected = hSelected.filter(function (s) { return !(s.target === e3.target && s.url === e3.url); });
+          if (box.checked) hSelected.push(e3);
+          box.closest('.thumb').classList.toggle('is-selected', box.checked);
+        });
+      })(ent, cb);
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = '×';
       (function (e2) {
         btn.addEventListener('click', function () {
           hRemoved.push(e2);
+          hSelected = hSelected.filter(function (s) { return !(s.target === e2.target && s.url === e2.url); });
           loadExistingHero();
         });
       })(ent);
-      d.appendChild(img); d.appendChild(btn);
+      d.appendChild(cb); d.appendChild(img); d.appendChild(btn);
       hExistingThumbs.appendChild(d);
     }
   }
 
-  hTargetEl.addEventListener('change', function () { hRemoved = []; loadExistingHero(); });
+  document.getElementById('btnHeroSelectAll').addEventListener('click', function () {
+    hExistingThumbs.querySelectorAll('input[type=checkbox]').forEach(function (cb) { if (!cb.checked) cb.click(); });
+  });
+  document.getElementById('btnHeroSelectNone').addEventListener('click', function () {
+    hSelected = [];
+    loadExistingHero();
+  });
+  document.getElementById('btnHeroDeleteSelected').addEventListener('click', function () {
+    if (!hSelected.length) { alert('Chưa chọn ảnh nào.'); return; }
+    hRemoved = hRemoved.concat(hSelected);
+    hSelected = [];
+    loadExistingHero();
+  });
+
+  hTargetEl.addEventListener('change', function () { hRemoved = []; hSelected = []; loadExistingHero(); });
   document.querySelector('[data-tab="hero-images"]').addEventListener('click', loadExistingHero);
   document.getElementById('btnAddHero').addEventListener('click', async function () {
     heroLog.textContent = '';
@@ -665,6 +693,7 @@
       heroFiles.length = 0;
       document.getElementById('hThumbs').innerHTML = '';
       hRemoved = [];
+      hSelected = [];
       await loadExistingHero();
     } catch (e) {
       log(heroLog, '❌ Lỗi: ' + e.message);

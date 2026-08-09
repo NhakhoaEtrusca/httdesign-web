@@ -41,6 +41,8 @@
   .thumb-row .thumb { position: relative; width: 84px; height: 84px; border-radius: var(--radius); overflow: hidden; background: #ddd; }
   .thumb-row .thumb img { width: 100%; height: 100%; object-fit: cover; }
   .thumb-row .thumb button { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; cursor: pointer; line-height: 1; }
+  .thumb-row .thumb input[type=checkbox] { position: absolute; top: 4px; left: 4px; width: 16px; height: 16px; cursor: pointer; }
+  .thumb-row .thumb.is-selected { outline: 2px solid var(--color-accent); }
   .a-log { background: var(--color-dark); color: var(--color-dark-text); border-radius: var(--radius); padding: 16px; font-size: 12px; font-family: monospace; max-height: 220px; overflow-y: auto; white-space: pre-wrap; margin-top: 16px; display: none; }
   .a-log.show { display: block; }
   .check-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
@@ -168,7 +170,12 @@
         </div>
 
         <div class="a-field">
-          <label>Ảnh nền hiện có (bấm × để xóa)</label>
+          <label>Ảnh nền hiện có (bấm × để xóa 1 ảnh, hoặc tick chọn rồi xóa hàng loạt)</label>
+          <div style="display:flex;gap:8px;margin-bottom:10px">
+            <button type="button" id="btnHeroSelectAll" class="btn btn--light" style="padding:6px 14px;font-size:12px">Chọn tất cả</button>
+            <button type="button" id="btnHeroSelectNone" class="btn btn--light" style="padding:6px 14px;font-size:12px">Bỏ chọn</button>
+            <button type="button" id="btnHeroDeleteSelected" class="btn btn--light" style="padding:6px 14px;font-size:12px;color:#b3311f;border-color:#b3311f">Xóa ảnh đã chọn</button>
+          </div>
           <div class="thumb-row" id="hExistingThumbs"></div>
         </div>
 
