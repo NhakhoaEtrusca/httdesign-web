@@ -228,6 +228,7 @@
       mainTools.style.display = 'block';
       refreshProjectList();
       populateEditSelect();
+      loadExistingHero();
     } catch (e) {
       if (e.name !== 'AbortError') alert('Không thể kết nối thư mục: ' + e.message);
     }
@@ -472,13 +473,99 @@
     return content.slice(0, idx) + slideDiv + content.slice(idx);
   }
 
+  function parseHeroSlides(content) {
+    var re = /<div class="hero-slide[^"]*"\s+style="background-image:url\('([^']+)'\)"><\/div>\n?/g;
+    var m, out = [];
+    while ((m = re.exec(content)) !== null) out.push(m[1]);
+    return out;
+  }
+
+  function removeHeroSlide(content, url) {
+    var esc = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var re = new RegExp('<div class="hero-slide[^"]*"\\s+style="background-image:url\\(\'' + esc + '\'\\)"><\\/div>\\n?');
+    return content.replace(re, '');
+  }
+
+  function heroUrlToLocalPath(url) {
+    return url.replace(/^\.\.\//, '');
+  }
+
   /* ---------- Hero images ---------- */
   var heroLog = document.getElementById('heroLog');
+  var hExistingThumbs = document.getElementById('hExistingThumbs');
+  var hTargetEl = document.getElementById('hTarget');
+  var hRemoved = [];
+  var hExistingObjectUrls = [];
+
+  async function loadLocalImagePreview(rootRelPath) {
+    var parts = rootRelPath.split('/');
+    var fileName = parts.pop();
+    var dir = parts.length ? await getDir(parts.join('/'), false) : rootHandle;
+    var handle = await dir.getFileHandle(fileName);
+    var blob = await handle.getFile();
+    var objUrl = URL.createObjectURL(blob);
+    hExistingObjectUrls.push(objUrl);
+    return objUrl;
+  }
+
+  async function loadExistingHero() {
+    if (!rootHandle) return;
+    hExistingObjectUrls.forEach(function (u) { URL.revokeObjectURL(u); });
+    hExistingObjectUrls = [];
+    hExistingThumbs.innerHTML = '';
+    var target = hTargetEl.value;
+    var entries = [];
+    if (target === 'home' || target === 'both') {
+      var homeContent = await readTextFile('index.html');
+      parseHeroSlides(homeContent).forEach(function (u) { entries.push({ target: 'home', url: u }); });
+    }
+    if (target === 'projects' || target === 'both') {
+      var projContent = await readTextFile('du-an/index.html');
+      parseHeroSlides(projContent).forEach(function (u) { entries.push({ target: 'projects', url: u }); });
+    }
+    for (var i = 0; i < entries.length; i++) {
+      var ent = entries[i];
+      var isRemoved = hRemoved.some(function (r) { return r.target === ent.target && r.url === ent.url; });
+      if (isRemoved) continue;
+      var d = document.createElement('div');
+      d.className = 'thumb';
+      var img = document.createElement('img');
+      try {
+        img.src = await loadLocalImagePreview(heroUrlToLocalPath(ent.url));
+      } catch (e) {
+        img.alt = 'Không đọc được ảnh';
+      }
+      if (target === 'both') {
+        var tag = document.createElement('div');
+        tag.textContent = ent.target === 'home' ? 'Trang chủ' : 'Dự án';
+        tag.style.cssText = 'position:absolute;bottom:2px;left:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;font-size:9px;text-align:center;border-radius:3px;padding:1px 0';
+        d.appendChild(tag);
+      }
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = '×';
+      (function (e2) {
+        btn.addEventListener('click', function () {
+          hRemoved.push(e2);
+          loadExistingHero();
+        });
+      })(ent);
+      d.appendChild(img); d.appendChild(btn);
+      hExistingThumbs.appendChild(d);
+    }
+  }
+
+  hTargetEl.addEventListener('change', function () { hRemoved = []; loadExistingHero(); });
+  document.querySelector('[data-tab="hero-images"]').addEventListener('click', loadExistingHero);
   document.getElementById('btnAddHero').addEventListener('click', async function () {
     heroLog.textContent = '';
     if (!rootHandle) { alert('Vui lòng kết nối thư mục website trước.'); return; }
-    if (!heroFiles.length) { alert('Vui lòng chọn ít nhất 1 ảnh.'); return; }
-    var target = document.getElementById('hTarget').value;
+    var target = hTargetEl.value;
+    var removedHome = hRemoved.filter(function (r) { return r.target === 'home'; });
+    var removedProj = hRemoved.filter(function (r) { return r.target === 'projects'; });
+    var touchHome = target === 'home' || target === 'both' || removedHome.length > 0;
+    var touchProj = target === 'projects' || target === 'both' || removedProj.length > 0;
+    if (!heroFiles.length && !hRemoved.length) { alert('Chưa có thay đổi nào (chưa thêm ảnh mới, chưa xóa ảnh nào).'); return; }
 
     try {
       var savedPaths = [];
@@ -494,22 +581,49 @@
       }
 
       var homeContent = null, projContent = null;
-      if (target === 'home' || target === 'both') {
+      if (touchHome) {
         homeContent = await readTextFile('index.html');
-        savedPaths.forEach(function (p) {
-          homeContent = insertHeroSlide(homeContent, '  <div class="hero-slide" style="background-image:url(\'' + p + '\')"></div>\n');
-        });
+        removedHome.forEach(function (r) { homeContent = removeHeroSlide(homeContent, r.url); });
+        if (target === 'home' || target === 'both') {
+          savedPaths.forEach(function (p) {
+            homeContent = insertHeroSlide(homeContent, '  <div class="hero-slide" style="background-image:url(\'' + p + '\')"></div>\n');
+          });
+        }
         await writeTextFile('index.html', homeContent);
-        log(heroLog, '✓ Đã thêm vào ảnh nền Trang chủ');
+        log(heroLog, '✓ Đã cập nhật ảnh nền Trang chủ');
       }
-      if (target === 'projects' || target === 'both') {
+      if (touchProj) {
         projContent = await readTextFile('du-an/index.html');
-        savedPaths.forEach(function (p) {
-          projContent = insertHeroSlide(projContent, '  <div class="hero-slide" style="background-image:url(\'../' + p + '\')"></div>\n');
-        });
+        removedProj.forEach(function (r) { projContent = removeHeroSlide(projContent, r.url); });
+        if (target === 'projects' || target === 'both') {
+          savedPaths.forEach(function (p) {
+            projContent = insertHeroSlide(projContent, '  <div class="hero-slide" style="background-image:url(\'../' + p + '\')"></div>\n');
+          });
+        }
         await writeTextFile('du-an/index.html', projContent);
-        log(heroLog, '✓ Đã thêm vào ảnh nền trang Dự án');
+        log(heroLog, '✓ Đã cập nhật ảnh nền trang Dự án');
       }
+
+      // Clean up now-orphaned custom hero image files (no longer referenced by either page)
+      var orphanPaths = [];
+      if (hRemoved.length) {
+        log(heroLog, 'Đang dọn ảnh không còn dùng...');
+        var stillUsed = {};
+        (parseHeroSlides(homeContent || '')).forEach(function (u) { stillUsed[heroUrlToLocalPath(u)] = true; });
+        (parseHeroSlides(projContent || '')).forEach(function (u) { stillUsed[heroUrlToLocalPath(u)] = true; });
+        var seen = {};
+        hRemoved.forEach(function (r) {
+          var p = heroUrlToLocalPath(r.url);
+          if (seen[p] || stillUsed[p]) return;
+          seen[p] = true;
+          orphanPaths.push(p);
+        });
+        for (var k = 0; k < orphanPaths.length; k++) {
+          try { await deleteLocalFile(orphanPaths[k]); log(heroLog, '  ✓ Đã xóa ' + orphanPaths[k]); }
+          catch (delErr) { log(heroLog, '  ⚠ Không xóa được ' + orphanPaths[k] + ': ' + delErr.message); }
+        }
+      }
+
       log(heroLog, '');
       log(heroLog, '✅ Hoàn tất (đã lưu trên máy)!');
 
@@ -520,6 +634,18 @@
           for (var j = 0; j < savedPaths.length; j++) {
             await ghPushBinary(savedPaths[j], savedBlobs[j], 'Add hero image via admin (' + savedPaths[j] + ')');
             log(heroLog, '  ✓ Đã đẩy ' + savedPaths[j]);
+          }
+          for (var o = 0; o < orphanPaths.length; o++) {
+            try {
+              var s = ghSettings();
+              var api = 'https://api.github.com/repos/' + s.owner + '/' + s.repo + '/contents/' + orphanPaths[o] + '?ref=' + s.branch;
+              var getRes = await fetch(api, { headers: { 'Authorization': 'Bearer ' + s.token, 'Accept': 'application/vnd.github+json' } });
+              if (getRes.ok) {
+                var j2 = await getRes.json();
+                await ghDeleteFile(orphanPaths[o], j2.sha, 'Remove unused hero image via admin');
+                log(heroLog, '  ✓ Đã xóa trên GitHub: ' + orphanPaths[o]);
+              }
+            } catch (delGhErr) { log(heroLog, '  ⚠ Không xóa được trên GitHub: ' + orphanPaths[o]); }
           }
           if (homeContent !== null) {
             await ghPushText('index.html', homeContent, 'Update homepage hero slides via admin');
@@ -538,6 +664,8 @@
 
       heroFiles.length = 0;
       document.getElementById('hThumbs').innerHTML = '';
+      hRemoved = [];
+      await loadExistingHero();
     } catch (e) {
       log(heroLog, '❌ Lỗi: ' + e.message);
     }
