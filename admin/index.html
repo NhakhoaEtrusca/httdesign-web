@@ -228,7 +228,12 @@
           </div>
 
           <div class="a-field">
-            <label>Ảnh hiện có (ảnh đầu tiên là ảnh đại diện)</label>
+            <label>Ảnh hiện có (ảnh đầu tiên là ảnh đại diện, bấm × để xóa 1 ảnh, hoặc tick chọn rồi xóa hàng loạt)</label>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+              <button type="button" id="btnEditSelectAll" class="btn btn--light" style="padding:6px 14px;font-size:12px">Chọn tất cả</button>
+              <button type="button" id="btnEditSelectNone" class="btn btn--light" style="padding:6px 14px;font-size:12px">Bỏ chọn</button>
+              <button type="button" id="btnEditDeleteSelected" class="btn btn--light" style="padding:6px 14px;font-size:12px;color:#b3311f;border-color:#b3311f">Xóa ảnh đã chọn</button>
+            </div>
             <div class="thumb-row" id="eExistingThumbs"></div>
           </div>
           <div class="a-field">

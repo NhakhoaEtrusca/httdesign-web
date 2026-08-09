@@ -632,13 +632,17 @@
         log(heroLog, '✓ Đã cập nhật ảnh nền trang Dự án');
       }
 
-      // Clean up now-orphaned custom hero image files (no longer referenced by either page)
+      // Clean up now-orphaned custom hero image files (no longer referenced by either page).
+      // Always check BOTH pages' current content, not just the one(s) touched this save,
+      // since an image removed from one page may still be in use on the other.
       var orphanPaths = [];
       if (hRemoved.length) {
         log(heroLog, 'Đang dọn ảnh không còn dùng...');
         var stillUsed = {};
-        (parseHeroSlides(homeContent || '')).forEach(function (u) { stillUsed[heroUrlToLocalPath(u)] = true; });
-        (parseHeroSlides(projContent || '')).forEach(function (u) { stillUsed[heroUrlToLocalPath(u)] = true; });
+        var homeCheck = homeContent !== null ? homeContent : await readTextFile('index.html');
+        var projCheck = projContent !== null ? projContent : await readTextFile('du-an/index.html');
+        (parseHeroSlides(homeCheck)).forEach(function (u) { stillUsed[heroUrlToLocalPath(u)] = true; });
+        (parseHeroSlides(projCheck)).forEach(function (u) { stillUsed[heroUrlToLocalPath(u)] = true; });
         var seen = {};
         hRemoved.forEach(function (r) {
           var p = heroUrlToLocalPath(r.url);
@@ -760,6 +764,7 @@
   document.querySelector('[data-tab="edit-project"]').addEventListener('click', populateEditSelect);
 
   var eThumbObjectUrls = [];
+  var eSelected = [];
   async function renderExistingThumbs() {
     eThumbObjectUrls.forEach(function (u) { URL.revokeObjectURL(u); });
     eThumbObjectUrls = [];
@@ -770,6 +775,8 @@
       if (editState.removed.indexOf(fname) !== -1) continue;
       var d = document.createElement('div');
       d.className = 'thumb';
+      var isSelected = eSelected.indexOf(fname) !== -1;
+      if (isSelected) d.classList.add('is-selected');
       var img = document.createElement('img');
       try {
         var fh = await dir.getFileHandle(fname);
@@ -780,19 +787,44 @@
       } catch (e) {
         img.alt = 'Không đọc được ' + fname;
       }
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = isSelected;
+      (function (fn2, box) {
+        box.addEventListener('change', function () {
+          eSelected = eSelected.filter(function (s) { return s !== fn2; });
+          if (box.checked) eSelected.push(fn2);
+          box.closest('.thumb').classList.toggle('is-selected', box.checked);
+        });
+      })(fname, cb);
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = '×';
       (function (fn) {
         btn.addEventListener('click', function () {
           editState.removed.push(fn);
+          eSelected = eSelected.filter(function (s) { return s !== fn; });
           renderExistingThumbs();
         });
       })(fname);
-      d.appendChild(img); d.appendChild(btn);
+      d.appendChild(cb); d.appendChild(img); d.appendChild(btn);
       eExistingThumbs.appendChild(d);
     }
   }
+
+  document.getElementById('btnEditSelectAll').addEventListener('click', function () {
+    eExistingThumbs.querySelectorAll('input[type=checkbox]').forEach(function (cb) { if (!cb.checked) cb.click(); });
+  });
+  document.getElementById('btnEditSelectNone').addEventListener('click', function () {
+    eSelected = [];
+    renderExistingThumbs();
+  });
+  document.getElementById('btnEditDeleteSelected').addEventListener('click', function () {
+    if (!eSelected.length) { alert('Chưa chọn ảnh nào.'); return; }
+    editState.removed = editState.removed.concat(eSelected);
+    eSelected = [];
+    renderExistingThumbs();
+  });
 
   var eNewFiles = [];
   bindUploader('eDropZone', 'eFileInput', 'eNewThumbs', eNewFiles);
@@ -834,6 +866,7 @@
       existingFiles = existingFiles.filter(function (f) { return /\.webp$/i.test(f); });
 
       editState = { slug: slug, category: category, imgDir: imgDir, imgDirPath: '../' + imgDir, pagePath: pagePath, existingFiles: existingFiles, removed: [] };
+      eSelected = [];
       eNewFiles.length = 0;
       document.getElementById('eNewThumbs').innerHTML = '';
       await renderExistingThumbs();
@@ -972,6 +1005,7 @@
       eProjectSelect.value = '';
       eEditArea.style.display = 'none';
       editState = null;
+      eSelected = [];
       refreshProjectList();
     } catch (e) {
       log(editLog, '❌ Lỗi: ' + e.message);
