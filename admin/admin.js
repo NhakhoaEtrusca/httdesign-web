@@ -1,5 +1,53 @@
 // HTTDesign — Admin tool (client-side, File System Access API)
 // Only works in Chromium browsers (Chrome / Edge) on desktop.
+
+/* ---------- Login gate (client-side only — a deterrent, not real access control) ---------- */
+(function () {
+  'use strict';
+  var PASS_HASH = '46e1c87fb1bf77238da8cb5b9c553f6b70760ae521eb012b8b9503805246521';
+  var SESSION_KEY = 'htt_admin_authed';
+
+  async function sha256Hex(str) {
+    var buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.prototype.map.call(new Uint8Array(buf), function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  function unlock() {
+    document.body.classList.remove('admin-locked');
+    document.getElementById('authGate').style.display = 'none';
+  }
+
+  if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    unlock();
+  } else {
+    var input = document.getElementById('authPassInput');
+    var errEl = document.getElementById('authError');
+    var submit = document.getElementById('authSubmitBtn');
+    async function tryLogin() {
+      errEl.style.display = 'none';
+      try {
+        var hash = await sha256Hex(input.value);
+        if (hash === PASS_HASH) {
+          sessionStorage.setItem(SESSION_KEY, '1');
+          unlock();
+          return;
+        }
+      } catch (e) {
+        errEl.textContent = 'Lỗi trình duyệt (crypto không khả dụng). Vui lòng mở trang này qua https://httdesign.art/admin/ thay vì mở file trực tiếp.';
+        errEl.style.display = 'block';
+        return;
+      }
+      errEl.textContent = 'Sai mật khẩu, thử lại.';
+      errEl.style.display = 'block';
+      input.value = '';
+      input.focus();
+    }
+    submit.addEventListener('click', tryLogin);
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryLogin(); });
+    input.focus();
+  }
+})();
+
 (function () {
   'use strict';
 
