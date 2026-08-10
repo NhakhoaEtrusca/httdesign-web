@@ -4,7 +4,7 @@
 /* ---------- Login gate (client-side only — a deterrent, not real access control) ---------- */
 (function () {
   'use strict';
-  var PASS_HASH = '46e1c87fb1bf77238da8cb5b9c553f6b70760ae521eb012b8b9503805246521';
+  var PASS_HASH = '46e1c87fb1bf77238da8cb5b9c553f6b70760ae521eb012b8b9503805246521d';
   var SESSION_KEY = 'htt_admin_authed';
 
   async function sha256Hex(str) {
